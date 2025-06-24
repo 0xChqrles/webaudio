@@ -1,11 +1,12 @@
 import { PrimaryButton } from 'components/Button'
 import { Column, Row } from 'components/Flex'
 import { useAudio } from 'hooks/useAudio'
+import { transparentize } from 'polished'
 import { Sound } from 'sounds'
 import styled from 'styled-components'
 import { ThemedText } from 'theme/components'
 
-const Container = styled(Row)`
+const Container = styled(Row)<{ isPlaying: boolean }>`
   padding: 16px;
   justify-content: space-between;
   align-items: center;
@@ -13,6 +14,7 @@ const Container = styled(Row)`
   gap: 16px;
   width: 100%;
   max-width: 500px;
+  background-color: ${({ isPlaying, theme }) => (isPlaying ? transparentize(0.9, theme.accent1) : 'transparent')};
 `
 
 const FileId = styled(ThemedText.Body)`
@@ -59,7 +61,7 @@ export function SoundListItem({ sound }: { sound: Sound }) {
   const isPlaying = isCurrentSound && isCurrentSoundPlaying
 
   return (
-    <Container>
+    <Container isPlaying={isPlaying}>
       <FileId>{sound.fileId.padStart(2, '0')}</FileId>
       <SongInfo>
         <SongName>{sound.songName}</SongName>

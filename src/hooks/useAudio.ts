@@ -2,7 +2,7 @@ import { Howl } from 'howler'
 import { useCallback, useMemo, useState } from 'react'
 import { SOUNDS } from 'sounds'
 import { useBoundStore } from 'state'
-import { Sounds } from 'state/audio'
+import { SoundMetadata, Sounds } from 'state/audio'
 import { useShallow } from 'zustand/react/shallow'
 
 export function useAudio() {
@@ -10,20 +10,31 @@ export function useAudio() {
   const [loadedFiles, setLoadedFiles] = useState<string[]>([])
   const [isCurrentSoundPlaying, setIsCurrentSoundPlaying] = useState(false)
 
-  const { currentSound, currentSoundId, setCurrentSound, sounds, loadSounds, loadedCount, increaseLoadedCount } =
-    useBoundStore(
-      useShallow((state) => ({
-        currentSound: state.currentSound,
-        currentSoundId: state.currentSoundId,
-        setCurrentSound: state.setCurrentSound,
+  const {
+    currentSound,
+    currentSoundId,
+    setCurrentSound,
+    sounds,
+    soundMetadata,
+    loadSounds,
+    loadSoundMetadata,
+    loadedCount,
+    increaseLoadedCount,
+  } = useBoundStore(
+    useShallow((state) => ({
+      currentSound: state.currentSound,
+      currentSoundId: state.currentSoundId,
+      setCurrentSound: state.setCurrentSound,
 
-        sounds: state.sounds,
-        loadSounds: state.loadSounds,
+      sounds: state.sounds,
+      soundMetadata: state.soundMetadata,
+      loadSounds: state.loadSounds,
+      loadSoundMetadata: state.loadSoundMetadata,
 
-        loadedCount: state.loadedCount,
-        increaseLoadedCount: state.increaseLoadedCount,
-      }))
-    )
+      loadedCount: state.loadedCount,
+      increaseLoadedCount: state.increaseLoadedCount,
+    }))
+  )
 
   const loadAudio = useCallback(() => {
     console.log('Starting to load audio files...')
@@ -34,6 +45,13 @@ export function useAudio() {
         `Loading ${SOUNDS.length} audio files:`,
         SOUNDS.map((s) => s.name)
       )
+
+      // Load sound metadata
+      const metadata: SoundMetadata = {}
+      SOUNDS.forEach((sound) => {
+        metadata[sound.id] = sound
+      })
+      loadSoundMetadata(metadata)
 
       loadSounds(
         SOUNDS.reduce<Sounds>((acc, sound) => {
@@ -54,13 +72,16 @@ export function useAudio() {
         }, {} as Sounds)
       )
     }
-  }, [increaseLoadedCount, loadSounds, sounds])
+  }, [increaseLoadedCount, loadSounds, loadSoundMetadata, sounds])
 
   // Function to play/pause sounds
   const playSound = useCallback(
     (soundId: string) => {
       const targetSound = sounds?.[soundId]
       if (!targetSound) return
+
+      // Get the start time from metadata
+      const startTime = soundMetadata?.[soundId]?.startTime ?? 0
 
       // If clicking the same sound that's currently playing
       if (soundId === currentSoundId && currentSound) {
@@ -70,9 +91,9 @@ export function useAudio() {
           currentSound.pause()
           setIsCurrentSoundPlaying(false)
         } else {
-          // Currently paused -> restart from beginning
-          console.log(`▶️ Restarting from beginning: ${soundId}`)
-          currentSound.seek(0) // Reset to beginning
+          // Currently paused -> restart from custom start time
+          console.log(`▶️ Restarting from ${startTime}s: ${soundId}`)
+          currentSound.seek(startTime)
           currentSound.play()
           setIsCurrentSoundPlaying(true)
         }
@@ -86,7 +107,7 @@ export function useAudio() {
         setIsCurrentSoundPlaying(false)
       }
 
-      console.log(`▶️ Playing from start: ${soundId}`)
+      console.log(`▶️ Playing from ${startTime}s: ${soundId}`)
       const newSound = setCurrentSound(soundId)
       if (newSound) {
         // Set up event listeners for the new sound
@@ -107,12 +128,12 @@ export function useAudio() {
           setIsCurrentSoundPlaying(false)
         })
 
-        // Always start from the beginning
-        newSound.seek(0)
+        // Start from the custom start time
+        newSound.seek(startTime)
         newSound.play()
       }
     },
-    [currentSound, currentSoundId, setCurrentSound, sounds]
+    [currentSound, currentSoundId, setCurrentSound, sounds, soundMetadata]
   )
 
   // is loaded
